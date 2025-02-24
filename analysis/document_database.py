@@ -59,7 +59,7 @@ class DocumentDatabase(Database):
     def _setup_rag(self, *args, **kwargs):
         retriever = self.vectorstore.as_retriever()
         prompt = hub.pull("rlm/rag-prompt")
-        llm = ChatOpenAI(model_name="gpt-3.5-turbo", api_key=openai_key)
+        llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=openai_key)
 
         rag_chain_from_docs = ( RunnablePassthrough.assign(
             context=(lambda x: self.format_docs(x["context"])))
@@ -76,9 +76,10 @@ class DocumentDatabase(Database):
 
     def ask_rag(self, query,debug=False, *args):
         rag_chain = self._setup_rag()
-        llm = ChatOpenAI(model_name="gpt-3.5-turbo", api_key=openai_key)
+        llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=openai_key)
         if debug:
             responses = {"query": query, "llm": "LLM ANSWER", "rag": "RAG ANSWER"}
             return responses
-        responses = {"query": query, "llm": llm.invoke(query).content, "rag": rag_chain.invoke(query)}
+        # llm.invoke(query).content - not calling llm
+        responses = {"query": query, "llm": "", "rag": rag_chain.invoke(query)}
         return responses

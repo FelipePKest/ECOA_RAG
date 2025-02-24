@@ -21,7 +21,7 @@ openai_key = os.getenv("OPENAI_API_KEY")
 class DocumentDatabase(Database):
 
     paths = []
-    base_path = "data/SRIJ Regulação e Normas"
+    base_path = "data/pdfs"
 
     def format_docs(self, docs: List[Document]):
         return "\n\n".join(doc.page_content for doc in docs)
@@ -97,11 +97,12 @@ class DocumentDatabase(Database):
                 search_kwargs={"k": chain_params["retriever_k"]}
             )
         template = PromptTemplate.from_template('''
-            You are Veri, a chatbot compliance expert in the sports betting bussiness giving legal advice to a client.
-            All answers must be related to the domain of online gambling.
-            The client asks you the following question: "{question}"
-            You have to provide an answer based on the following documents:{context}
-            Provide all legals and technical information available to answer the question in details.
+            You are IAris, a concise chatbot expert in the social, cultural and envirnoment impact that will advice leaders that want to build social businesses.
+            All answers must be related to the domain of positive societal impact.
+            ## The client asks you the following question: "{question}"
+            ## You have to provide an answer based on the following documents:"{context}"
+            Your answer should only be based on the documents provided.
+            Be provocative and ask one follow-up inquiry to question the client, making sure that gaps are considered.
         ''')
         # prompt = hub.pull("rlm/rag-prompt")
         
@@ -153,9 +154,12 @@ class DocumentDatabase(Database):
                 sources.append(context[i].metadata["source"])
                 if "page" in context[i].metadata:
                     sources[i] += "\n\n Pagina " + str(context[i].metadata["page"])
-            responses = {"query": query, "llm_stream": llm.stream(query), "rag_stream": answer_chain.stream(query), "sources": sources}
+
+            # llm.stream(query) - not asking llm
+            responses = {"query": query, "llm_stream": "", "rag_stream": answer_chain.stream(query), "sources": sources}
         else:
-            responses = {"query": query, "llm": llm.invoke(query).content, "rag": rag_chain.invoke(query)}
+            # llm.invoke(query).content - not asking llm
+            responses = {"query": query, "llm": "", "rag": rag_chain.invoke(query)}
         return responses
 
 print("Document Database Loaded")

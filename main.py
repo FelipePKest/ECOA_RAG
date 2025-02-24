@@ -6,7 +6,7 @@ from controller import ChatController
 
 if __name__ == "__main__":
     # Initialize MVC components
-    model = DocumentDatabase(file_path="data/SRIJ Regulação e Normas")
+    model = DocumentDatabase(file_path="data/pdfs")
     view = ChatView()
     controller = ChatController(model, view)
 

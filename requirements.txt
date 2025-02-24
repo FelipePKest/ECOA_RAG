@@ -12,4 +12,6 @@ termcolor
 pydantic
 streamlit
 streamlit-float
+streamlit-chat
 langchain-chroma
+pdfplumber

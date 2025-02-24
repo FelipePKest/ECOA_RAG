@@ -4,6 +4,15 @@ from view.view import View
 from streamlit_chat import message
 from streamlit_float import float_init
 from PIL import Image
+from dotenv import load_dotenv
+import urllib.parse
+import re
+
+# Load environment variables from .env
+load_dotenv()
+
+# Get FILE_LOCATIONS from .env
+BASE_FILE_PATH = os.getenv("FILES_LOCATION", "")
 
 # from model.database import ask_rag
 
@@ -46,7 +55,7 @@ class ChatView(View):
     def __init__(self):
         logo = st.columns(1)[0]
         with logo:
-            st.image("view/images/verid_logo.png", width=300)
+            st.image("view/images/IARIS.png", width=100)
         
         search_params = st.expander("Parametros de busca", expanded=False)
 
@@ -56,7 +65,7 @@ class ChatView(View):
                 self.values = st.slider("Buscar em quantos documentos", 1, 10)
             with docs_filters:
                 # TODO: Change hardcode strings to dynamic values
-                topics = ["AML FT", "Lei de Defesa do Consumidor", "Procedimento Adminsitrativo e Contraordenações", "Regulação de Jogos","Regulação de Pagamentos"]
+                topics = ["Negocios Sociais"]
                 self.search_filter = st.multiselect("Filtrar por", topics, default=topics, format_func=format_function)
                 # self
         self.retriever_k = 1
@@ -65,15 +74,13 @@ class ChatView(View):
         col1, col2 = st.columns([4, 1])
 
         self.key:int=0
-        logo_img = Image.open("view/images/verid_check.png")
 
         with col2:
             self.sources_tab = st.empty()
             self.third_placeholder = st.empty()
         with col1:
             self.human_message = st.chat_message("user")
-            self.rag_message = st.chat_message("rag", avatar=logo_img)
-            self.llm_message = st.chat_message("🤖")
+            self.rag_message = st.chat_message("🤖")
 
         text_container = st.container()
         with text_container:
@@ -139,11 +146,11 @@ class ChatView(View):
             if st.session_state['user_input']:
                 self.human_message.markdown(st.session_state['user_input'][-1])
         
-        with self.llm_message.container():
-            if st.session_state['generated_stream']:
-                st.write_stream(st.session_state['generated_stream'])
-            elif st.session_state['generated']:
-                self.llm_message.markdown(st.session_state['generated'][-1])
+        # with self.llm_message.container():
+        #     if st.session_state['generated_stream']:
+        #         st.write_stream(st.session_state['generated_stream'])
+        #     elif st.session_state['generated']:
+        #         self.llm_message.markdown(st.session_state['generated'][-1])
             
         with self.rag_message.container():
             if st.session_state['rag_stream']:
@@ -158,8 +165,16 @@ class ChatView(View):
         with self.sources_tab.container():
             if st.session_state['sources']:
                 for i in range(len(st.session_state['sources'])):
-                    st.write(st.session_state['sources'][i])
-                    st.divider()
+                    answer_position = st.session_state['sources'][i]
+                    file_path = re.search(r"^(.+?\.pdf)\b", answer_position) # removes the "Pagina X"
+                    if file_path:
+                        cleaned_path = file_path.group(1)
+                        answer_file_position = os.path.basename(answer_position)  # Extract just the file name
+                        file_url = BASE_FILE_PATH + cleaned_path  # Concatenate the base path with the file name
+                        file_url = urllib.parse.quote(file_url, safe=":/")  # Encode special characters
+                        
+                        st.link_button(label=f"{answer_file_position}", url=file_url)
+                        st.divider()
                 # st.text_area("Source",
                 #             st.session_state['source'],key=self.key, height=240)
         

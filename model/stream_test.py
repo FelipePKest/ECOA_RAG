@@ -63,7 +63,7 @@ class DocumentDatabase(Database):
             search_kwargs={"k": chain_params["retriever_k"]}
         )
         prompt = hub.pull("rlm/rag-prompt")
-        llm = ChatOpenAI(model_name="gpt-3.5-turbo", api_key=openai_key)
+        llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=openai_key)
 
         rag_chain_from_docs = ( RunnablePassthrough.assign(
             context=(lambda x: self.format_docs(x["context"])))
@@ -90,7 +90,7 @@ class DocumentDatabase(Database):
         if kwargs.get("output_format"):
             output_format = kwargs["output_format"]
         rag_chain = self._setup_rag(chain_params)
-        llm = ChatOpenAI(model_name="gpt-3.5-turbo", api_key=openai_key)
+        llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=openai_key)
         if debug:
             fake_docs = [Document(page_content="CONTEXT", metadata={"source":"SOURCE"+str(i)}) for i in range(1, chain_params["retriever_k"]+1)]
             responses = {"query": query, "llm": "LLM ANSWER", "rag": {"answer":"RAG ANSWER", "context": fake_docs}} 

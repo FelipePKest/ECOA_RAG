@@ -18,6 +18,7 @@ chroma.sqlite3
 __pycache__/
 *.py[cod]
 *$py.class
+.conda
 
 # C extensions
 *.so
