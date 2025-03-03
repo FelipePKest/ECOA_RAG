@@ -7,6 +7,8 @@ from PIL import Image
 from dotenv import load_dotenv
 import urllib.parse
 import re
+import json
+import config
 
 # Load environment variables from .env
 load_dotenv()
@@ -64,11 +66,8 @@ class ChatView(View):
             with k_filter:
                 self.values = st.slider("Buscar em quantos documentos", 1, 10)
             with docs_filters:
-                # TODO: Change hardcode strings to dynamic values
-                topics_dirs = [f.path for f in os.scandir(file_path) if f.is_dir()]
-                topics = [re.search(r'[^/]+$', topic).group() for topic in topics_dirs]
+                topics = self._load_topics_json()
                 self.search_filter = st.multiselect("Filtrar por", topics, default=topics, format_func=format_function)
-                # self
         self.retriever_k = 1
 
 
@@ -97,6 +96,22 @@ class ChatView(View):
         st.session_state['rag_stream'] = None
         st.session_state['rag_generated'] = []
         st.session_state['sources'] = None
+
+    def _load_topics_json(self):
+        topics_json_path = os.path.join(config.TOPICS_FILE, "topics.json")
+
+        if not os.path.exists(topics_json_path):
+            print("⚠️ topics.json not found. Trying to fetch from current data dir.")
+
+            topics_dirs = [f.path for f in os.scandir(config.DATA_DIR) if f.is_dir()]
+            topics = [re.search(r'[^/]+$', topic).group() for topic in topics_dirs]
+            return topics
+
+        with open(topics_json_path, "r", encoding="utf-8") as f:
+            topics_clean = json.load(f)
+
+        return topics_clean
+    
 
     def _generate_context(self, prompt, context_data='generated'):
         context = []

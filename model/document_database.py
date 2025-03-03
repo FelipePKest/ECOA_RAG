@@ -11,6 +11,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 import config
 import os
 from model.database import Database
+import re
+import json
 # from database import Database
 
 from dotenv import load_dotenv
@@ -79,12 +81,38 @@ class DocumentDatabase(Database):
 
             new_splits.extend(text_splitter.split_documents(docs))
 
+        # Saves the topics for filtering in the interface
+        self._save_topics_json(file_path)
+
         # Add new documents to the vector store
         print(f"Adding {len(new_splits)} new documents to the vector database...")
         self.vectorstore.add_documents(new_splits)
         self.vectorstore.persist()  # Save the updated DB
 
         print("Vector database update complete.")
+
+
+    def _save_topics_json(self, file_path, output_folder="./chroma_db"):
+        topics = [f.path for f in os.scandir(file_path) if f.is_dir()]
+        topics_clean = [re.search(r'[^/]+$', topic).group() for topic in topics]
+
+        topics_json_path = os.path.join(output_folder, "topics.json")
+
+        # Load existing topics if the file exists
+        if os.path.exists(topics_json_path):
+            with open(topics_json_path, "r", encoding="utf-8") as f:
+                existing_topics = json.load(f)
+        else:
+            existing_topics = []
+
+        # Combine old and new topics, removing duplicates
+        updated_topics = list(set(existing_topics + topics_clean))
+
+        # Save back to JSON
+        with open(topics_json_path, "w", encoding="utf-8") as f:
+            json.dump(updated_topics, f, ensure_ascii=False, indent=4)
+
+        print(f"✅ Topics updated and saved to {topics_json_path}")
 
         
     def _setup_rag(self, *args, **kwargs):
