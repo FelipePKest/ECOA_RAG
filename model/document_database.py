@@ -115,9 +115,8 @@ class DocumentDatabase(Database):
         print(f"✅ Topics updated and saved to {topics_json_path}")
 
         
-    def _setup_rag(self, *args, **kwargs):
-        if len(args) > 0:
-            chain_params = args[0]
+    def _setup_rag(self, chain_params, prompt: PromptTemplate, **kwargs):
+        
         if "filter_dict" in kwargs.keys():
             print("Filter dict in setup: ", kwargs["filter_dict"])
             filter_dict = kwargs["filter_dict"]
@@ -136,21 +135,12 @@ class DocumentDatabase(Database):
             retriever = self.vectorstore.as_retriever(
                 search_kwargs={"k": chain_params["retriever_k"]}
             )
-        template = PromptTemplate.from_template('''
-            You are IAris, a concise chatbot expert in the social, cultural and envirnoment impact that will advice leaders that want to build social businesses.
-            All answers must be related to the domain of positive societal impact.
-            ## The client asks you the following question: "{question}"
-            ## You have to provide an answer based on the following documents:"{context}"
-            Your answer should only be based on the documents provided.
-            Be provocative and ask one follow-up inquiry to question the client, making sure that gaps are considered.
-        ''')
-        # prompt = hub.pull("rlm/rag-prompt")
-        
+
         llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=openai_key)
 
         rag_chain_from_docs = ( RunnablePassthrough.assign(
             context=(lambda x: self.format_docs(x["context"])))
-            | template
+            | prompt
             | llm
             | StrOutputParser()
         )
@@ -161,7 +151,7 @@ class DocumentDatabase(Database):
 
         return rag_chain_with_source
 
-    def ask_rag(self, query, debug=False, *args, **kwargs) -> dict:
+    def ask_rag(self, query, prompt: PromptTemplate, debug=False, *args, **kwargs) -> dict:
         print("args = ",args)
         # kwargs = len(args) > 0
         chain_params = {}
@@ -174,9 +164,9 @@ class DocumentDatabase(Database):
         if "filter_dict" in kwargs:
             filter_dict = kwargs["filter_dict"]
             # print("Filter dict: ", filter_dict)
-            rag_chain = self._setup_rag(chain_params, filter_dict=filter_dict)
+            rag_chain = self._setup_rag(chain_params, prompt, filter_dict=filter_dict)
         else:
-            rag_chain = self._setup_rag(chain_params)
+            rag_chain = self._setup_rag(chain_params, prompt)
         llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=openai_key)
         if debug:
             fake_docs = [Document(page_content="CONTEXT", metadata={"source":"SOURCE"+str(i)}) for i in range(1, chain_params["retriever_k"]+1)]

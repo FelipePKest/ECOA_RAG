@@ -22,9 +22,9 @@
 # font = "monospace"
 
 base = "light"
-primaryColor="#FF4B4B"
-backgroundColor="#FFFFFF"
-secondaryBackgroundColor="#F0F2F6"
+primaryColor="#3A9C3B"
+backgroundColor="#FAFAFA"
+secondaryBackgroundColor="#F2F7F2"
 textColor="#31333F"
 font="sans serif"
 
