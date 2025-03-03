@@ -8,6 +8,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
+import config
 import os
 from database import Database
 from dotenv import load_dotenv
@@ -15,47 +16,18 @@ load_dotenv()
 
 openai_key = os.getenv("OPENAI_API_KEY")
 
-class DocumentDatabase(Database):
+class DocumentDatabaseAnalysis(Database):
   
     def format_docs(self, docs: List[Document]):
         return "\n\n".join(doc.page_content for doc in docs)
     
 
-    def _initialize(self, load=True, file_path="data/pdfs", text_splitter=None, loader=None):
-        if os.path.exists("./chroma_db") and load:
-        
-            self.vectorstore = Chroma(
-                persist_directory="./chroma_db",
-                embedding_function=OpenAIEmbeddings()
-            )
-        else:
-
-            print("Loading documents from PDFs")
-            documents_paths = []
-            splits = []
-            
-            # load all pdfs in the directory and subdirectories
-            for root, dirs, files in os.walk(file_path):
-                for file in files:
-                    if file.endswith(".pdf"):
-                        file_path = os.path.join(root, file)
-                        documents_paths.append(file_path)
-
-            print(f"Found {len(documents_paths)} PDFs")
-            i = 0
-            for document_path in documents_paths:
-                print(f"Processing document {i+1}/{len(documents_paths)}")
-                loader = PDFPlumberLoader(file_path=document_path)
-                docs = loader.load()
-
-                if text_splitter is None:
-                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-
-                splits.extend(text_splitter.split_documents(docs))
-
-                i += 1
-            self.vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(), persist_directory="./chroma_db")            
-    
+    def _initialize(self, load=True, file_path="data/", text_splitter=None, loader=None):
+        self.vectorstore = Chroma(
+            persist_directory= config.PERSIST_DIRECTORY,
+            embedding_function=OpenAIEmbeddings()
+        )
+       
     def _setup_rag(self, *args, **kwargs):
         retriever = self.vectorstore.as_retriever()
         prompt = hub.pull("rlm/rag-prompt")

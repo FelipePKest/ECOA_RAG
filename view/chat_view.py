@@ -52,7 +52,7 @@ def format_function(text, wrap_limit=10):
 
 class ChatView(View):
 
-    def __init__(self):
+    def __init__(self, file_path: str):
         logo = st.columns(1)[0]
         with logo:
             st.image("view/images/IARIS.png", width=100)
@@ -65,7 +65,8 @@ class ChatView(View):
                 self.values = st.slider("Buscar em quantos documentos", 1, 10)
             with docs_filters:
                 # TODO: Change hardcode strings to dynamic values
-                topics = ["Negocios Sociais"]
+                topics_dirs = [f.path for f in os.scandir(file_path) if f.is_dir()]
+                topics = [re.search(r'[^/]+$', topic).group() for topic in topics_dirs]
                 self.search_filter = st.multiselect("Filtrar por", topics, default=topics, format_func=format_function)
                 # self
         self.retriever_k = 1

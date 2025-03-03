@@ -8,7 +8,7 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
+import config
 import os
 from model.database import Database
 # from database import Database
@@ -21,60 +21,72 @@ openai_key = os.getenv("OPENAI_API_KEY")
 class DocumentDatabase(Database):
 
     paths = []
-    base_path = "data/pdfs"
 
     def format_docs(self, docs: List[Document]):
         return "\n\n".join(doc.page_content for doc in docs)
-    
 
     def _initialize(self, load=True, file_path="data/", text_splitter=None, loader=None):
-        if os.path.exists("./chroma_db") and load:
-            print("Loading")
-            self.vectorstore = Chroma(
-                persist_directory="./chroma_db",
-                embedding_function=OpenAIEmbeddings()
-            )
-            print(len(self.vectorstore.get()))
+        self.file_path = file_path
+        # Load existing database if it exists
+        if os.path.exists(config.PERSIST_DIRECTORY) and load:
+            print("Loading existing vector database...")
+            self.vectorstore = Chroma(persist_directory=config.PERSIST_DIRECTORY, embedding_function=OpenAIEmbeddings())
+            existing_metadatas = self.vectorstore.get()["metadatas"]
+            existing_docs = {meta["source"] for meta in existing_metadatas if "source" in meta}  # Use source as ID
         else:
+            print("No existing database found. Creating a new one...")
+            self.vectorstore = Chroma(embedding_function=OpenAIEmbeddings(), persist_directory=config.PERSIST_DIRECTORY)
+            existing_docs = set()
 
-            print("Loading documents from PDFs")
-            documents_paths = []
-            splits = []
-            
-            # get subdirectories names
-            subjects = [f.path for f in os.scandir(file_path) if f.is_dir()]
-
-            # load all pdfs in the directory and subdirectories
-            for root, dirnames, files in os.walk(file_path):
-                for file in files:
-                    if file.endswith(".pdf"):
-                        file_path = os.path.join(root, file)
-                        documents_paths.append(file_path)
-
-            print(f"Found {len(documents_paths)} PDFs")
-            i = 0
-            for document_path in documents_paths:
-                print(f"Processing document {i+1}/{len(documents_paths)}")
-                loader = PDFPlumberLoader(file_path=document_path)
-                docs = loader.load()
-                for doc in docs:
-                    for subject in subjects:
-                        if subject in document_path:
-                            doc.metadata['subject'] = subject
-                    # doc.metadata['subject'] = document_path
-                
-                # {"source": document_path}
+        print(f"Existing document count: {len(existing_docs)}")
 
 
-                if text_splitter is None:
-                    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        # Get all PDF paths
+        all_documents = [
+            os.path.join(root, file)
+            for root, _, files in os.walk(file_path)
+            for file in files if file.endswith(".pdf")
+        ]
 
-                splits.extend(text_splitter.split_documents(docs))
+        subjects = [f.path for f in os.scandir(file_path) if f.is_dir()]
 
-                i += 1
-            print("Finished loading documents")
-            self.vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(), persist_directory="./chroma_db")            
-    
+         # Filter out already indexed documents
+        new_documents = [doc for doc in all_documents if doc not in existing_docs]
+
+        print(f"Found {len(all_documents)} PDFs in total.")
+        print(f"+++ New PDFs to process: {len(new_documents)}")
+
+        if not new_documents:
+            print("No new documents to add.")
+            return
+
+        new_splits = []
+        subjects = [f.path for f in os.scandir(file_path) if f.is_dir()]
+
+        for i, document_path in enumerate(new_documents):
+            print(f"+++ Processing document {i+1}/{len(new_documents)}: {document_path}")
+            loader = PDFPlumberLoader(file_path=document_path)
+            docs = loader.load()
+
+            for doc in docs:
+                for subject in subjects:
+                    if subject in document_path:
+                        doc.metadata['subject'] = subject
+                doc.metadata["source"] = document_path  # Track source
+
+            if text_splitter is None:
+                text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+
+            new_splits.extend(text_splitter.split_documents(docs))
+
+        # Add new documents to the vector store
+        print(f"Adding {len(new_splits)} new documents to the vector database...")
+        self.vectorstore.add_documents(new_splits)
+        self.vectorstore.persist()  # Save the updated DB
+
+        print("Vector database update complete.")
+
+        
     def _setup_rag(self, *args, **kwargs):
         if len(args) > 0:
             chain_params = args[0]
@@ -82,7 +94,7 @@ class DocumentDatabase(Database):
             print("Filter dict in setup: ", kwargs["filter_dict"])
             filter_dict = kwargs["filter_dict"]
             for i in range(len(filter_dict["filters"])):
-                full_filter = self.base_path + "/" + filter_dict["filters"][i]
+                full_filter = self.file_path + "/" + filter_dict["filters"][i]
                 filter_dict["filters"][i] = full_filter
             # print("Full Filter dict in setup: ", filter_dict)
             retriever = self.vectorstore.as_retriever(
